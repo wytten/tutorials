@@ -1,12 +1,12 @@
 package com.baeldung.influxdb;
 
-//import lombok.Data;
+import lombok.Data;
 import org.influxdb.annotation.Column;
 import org.influxdb.annotation.Measurement;
 
 import java.time.Instant;
 
-//@Data
+@Data
 @Measurement(name = "memory")
 public class MemoryPoint {
 
@@ -24,45 +24,5 @@ public class MemoryPoint {
 
     @Column(name = "buffer")
     private Long buffer;
-
-	public Instant getTime() {
-		return time;
-	}
-
-	public void setTime(Instant time) {
-		this.time = time;
-	}
-
-	public String getName() {
-		return name;
-	}
-
-	public void setName(String name) {
-		this.name = name;
-	}
-
-	public Long getFree() {
-		return free;
-	}
-
-	public void setFree(Long free) {
-		this.free = free;
-	}
-
-	public Long getUsed() {
-		return used;
-	}
-
-	public void setUsed(Long used) {
-		this.used = used;
-	}
-
-	public Long getBuffer() {
-		return buffer;
-	}
-
-	public void setBuffer(Long buffer) {
-		this.buffer = buffer;
-	}
 
 }

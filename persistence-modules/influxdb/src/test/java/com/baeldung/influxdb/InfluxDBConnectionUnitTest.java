@@ -19,20 +19,15 @@ import org.influxdb.impl.InfluxDBResultMapper;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.slf4j.LoggerFactory;
 
-import ch.qos.logback.classic.Logger;
+import lombok.extern.slf4j.Slf4j;
 
-//import lombok.extern.slf4j.Slf4j;
-
-//@Slf4j
+@Slf4j
 public class InfluxDBConnectionUnitTest {
 
 	private static final String DB_NAME = "baeldung";
-	private Logger log = (Logger) LoggerFactory.getLogger(InfluxDBConnectionUnitTest.class);
+
 	private InfluxDB connection;
-
-
 
 	@Before
 	public void setUp() {;
