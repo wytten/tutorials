@@ -1,35 +1,60 @@
 package com.baeldung.influxdb;
 
-import lombok.extern.slf4j.Slf4j;
-import org.influxdb.InfluxDB;
-import org.influxdb.InfluxDBFactory;
-import org.influxdb.InfluxDBIOException;
-import org.influxdb.dto.*;
-import org.influxdb.impl.InfluxDBResultMapper;
-import org.junit.Test;
-
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
 import static junit.framework.TestCase.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-@Slf4j
-public class InfluxDBConnectionLiveTest {
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 
+import org.influxdb.InfluxDB;
+import org.influxdb.InfluxDBFactory;
+import org.influxdb.InfluxDBIOException;
+import org.influxdb.dto.BatchPoints;
+import org.influxdb.dto.Point;
+import org.influxdb.dto.Pong;
+import org.influxdb.dto.Query;
+import org.influxdb.dto.QueryResult;
+import org.influxdb.impl.InfluxDBResultMapper;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.slf4j.LoggerFactory;
+
+import ch.qos.logback.classic.Logger;
+
+//import lombok.extern.slf4j.Slf4j;
+
+//@Slf4j
+public class InfluxDBConnectionUnitTest {
+
+	private static final String DB_NAME = "baeldung";
+	private Logger log = (Logger) LoggerFactory.getLogger(InfluxDBConnectionUnitTest.class);
+	private InfluxDB connection;
+
+
+
+	@Before
+	public void setUp() {;
+		String pw = System.getenv("IFPW");
+        connection = InfluxDBFactory.connect("http://127.0.0.1:8086", "admin", pw);
+        // Create "baeldung" and check for it
+        connection.createDatabase(DB_NAME);
+        assertTrue(connection.databaseExists(DB_NAME));
+	}
+	
+	@After
+	public void tearDown() {
+        // Drop "baeldung" and check again
+        connection.deleteDatabase(DB_NAME);
+        assertFalse(connection.databaseExists(DB_NAME));
+        connection.deleteDatabase(DB_NAME);
+        connection.close();
+	}
+	
     @Test
     public void whenCorrectInfoDatabaseConnects() {
-
-        InfluxDB connection = connectDatabase();
         assertTrue(pingServer(connection));
-    }
-
-    private InfluxDB connectDatabase() {
-
-        // Connect to database assumed on localhost with default credentials.
-        return  InfluxDBFactory.connect("http://127.0.0.1:8086", "admin", "admin");
-
     }
 
     private boolean pingServer(InfluxDB influxDB) {
@@ -50,32 +75,10 @@ public class InfluxDBConnectionLiveTest {
     }
 
     @Test
-    public void whenDatabaseCreatedDatabaseChecksOk() {
-
-        InfluxDB connection = connectDatabase();
-
-        // Create "baeldung" and check for it
-        connection.createDatabase("baeldung");
-        assertTrue(connection.databaseExists("baeldung"));
-
-        // Verify that nonsense databases are not there
-        assertFalse(connection.databaseExists("foobar"));
-
-        // Drop "baeldung" and check again
-        connection.deleteDatabase("baeldung");
-        assertFalse(connection.databaseExists("baeldung"));
-    }
-
-    @Test
     public void whenPointsWrittenPointsExists() throws Exception {
 
-        InfluxDB connection = connectDatabase();
-
-        String dbName = "baeldung";
-        connection.createDatabase(dbName);
-
         // Need a retention policy before we can proceed
-        connection.createRetentionPolicy("defaultPolicy", "baeldung", "30d", 1, true);
+        connection.createRetentionPolicy("defaultPolicy", DB_NAME, "30d", 1, true);
 
         // Since we are doing a batch thread, we need to set this as a default
         connection.setRetentionPolicy("defaultPolicy");
@@ -92,25 +95,21 @@ public class InfluxDBConnectionLiveTest {
                     .addField("buffer", 1010467L)
                     .build();
 
-            connection.write(dbName, "defaultPolicy", point);
-            Thread.sleep(2);
+            connection.write(DB_NAME, "defaultPolicy", point);
+            Thread.sleep(20);
 
         }
 
         // Unfortunately, the sleep inside the loop doesn't always add enough time to insure
         // that Influx's batch thread flushes all of the writes and this sometimes fails without
         // another brief pause.
-        Thread.sleep(10);
-
-        List<com.baeldung.influxdb.MemoryPoint> memoryPointList = getPoints(connection, "Select * from memory", "baeldung");
+        Thread.sleep(100);
+        List<com.baeldung.influxdb.MemoryPoint> memoryPointList = getPoints(connection, "Select * from memory", DB_NAME);
 
         assertEquals(10, memoryPointList.size());
 
         // Turn off batch and clean up
         connection.disableBatch();
-        connection.deleteDatabase("baeldung");
-        connection.close();
-
     }
 
     private List<MemoryPoint> getPoints(InfluxDB connection, String query, String databaseName) {
@@ -129,18 +128,13 @@ public class InfluxDBConnectionLiveTest {
     @Test
     public void whenBatchWrittenBatchExists() {
 
-        InfluxDB connection = connectDatabase();
-
-        String dbName = "baeldung";
-        connection.createDatabase(dbName);
-
         // Need a retention policy before we can proceed
         // Since we are doing batches, we need not set it
-        connection.createRetentionPolicy("defaultPolicy", "baeldung", "30d", 1, true);
+        connection.createRetentionPolicy("defaultPolicy", DB_NAME, "30d", 1, true);
 
 
         BatchPoints batchPoints = BatchPoints
-                .database(dbName)
+                .database(DB_NAME)
                 .retentionPolicy("defaultPolicy")
                 .build();
         Point point1 = Point.measurement("memory")
@@ -159,20 +153,16 @@ public class InfluxDBConnectionLiveTest {
         batchPoints.point(point2);
         connection.write(batchPoints);
 
-        List<MemoryPoint> memoryPointList = getPoints(connection, "Select * from memory", "baeldung");
+        List<MemoryPoint> memoryPointList = getPoints(connection, "Select * from memory", DB_NAME);
 
         assertEquals(2, memoryPointList.size());
         assertTrue(4743696L == memoryPointList.get(0).getFree());
 
 
-        memoryPointList = getPoints(connection, "Select * from memory order by time desc", "baeldung");
+        memoryPointList = getPoints(connection, "Select * from memory order by time desc", DB_NAME);
 
         assertEquals(2, memoryPointList.size());
         assertTrue(4743656L == memoryPointList.get(0).getFree());
-
-        // Clean up database
-        connection.deleteDatabase("baeldung");
-        connection.close();
     }
 
 }
